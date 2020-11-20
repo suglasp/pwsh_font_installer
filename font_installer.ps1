@@ -6,19 +6,20 @@
 # Created : 19/11/2020
 # Changed : 20/11/2020
 #
-# Usage : .\font_installer.ps1 [-install] [-uninstall] [-path <path>]
+# Usage : .\font_installer.ps1 [-install] [-uninstall] [-path <path>] [-info [<file>]]
 #
 # Parameters:
 # -install (default) : install listed fonts from local folder, to the %windir%\Fonts folder
 # -uninstall : uninstall the listed fonts in the local folder, from the %windir%\Fonts folder
 # -path <path> : custom path (default is current folder)
+# -info [<path>] : display font info. If no optional filename is provided, we display all fonts from the -path folder.
 #
 # Note : The scripts copies the .tff files, but also, opens the .tff and registers the official name in the Windows Registry Fonts hive.
 #
 
 
 # Powershell macro to require running as administrator
-#Requires -RunAsAdministrator
+## #Requires -RunAsAdministrator
 
 #region Global variables
 [string]$global:WorkDir = "$($PSScriptRoot)"
@@ -124,7 +125,31 @@ Function Read-UInt32BigEndian {
     [byte[]]$bytes = Read-BigEndianLump -RawStreamReader $RawStreamReader -Count 4
     return [System.BitConverter]::ToUInt32($bytes, 0)
 }
- 
+
+#
+# Function : Read-Int64BigEndian
+# Read a Signed Long Integer.
+#
+Function Read-Int64BigEndian {
+    Param(
+        [System.IO.BinaryReader]$RawStreamReader
+    )
+    [byte[]]$bytes = Read-BigEndianLump -RawStreamReader $RawStreamReader -Count 8
+    return [System.BitConverter]::ToInt32($bytes, 0)
+}  
+
+#
+# Function : Read-UInt64BigEndian
+# Read a Unsigned Long Integer.
+#
+Function Read-UInt64BigEndian {
+    Param(
+        [System.IO.BinaryReader]$RawStreamReader
+    )
+    [byte[]]$bytes = Read-BigEndianLump -RawStreamReader $RawStreamReader -Count 8
+    return [System.BitConverter]::ToUInt32($bytes, 0)
+}
+
 #
 # Function : Read-ASCIIBigEndian
 # Read a String in ASCII.
@@ -347,6 +372,60 @@ Function Read-TTFNameSubTable {
 
     Return $NameRecords
 }
+
+#
+# Function : Read-TTFNameSubTable
+# fetch .ttf file "head" table
+#
+Function Read-TTFHeadSubTable {
+    Param (
+        [Parameter(Mandatory=$true)]
+        [PSObject]$TTFHeader,
+        [Parameter(Mandatory=$true)]
+        [PSObject]$TTFFileTables
+    )
+
+    $TTFHeadTableHeader = $null
+
+    If ($global:TTFAllocated -and $TTFHeader -and $TTFFileTables) {
+        # read the 'name' lump from the .tff file
+        If ($TTFFileTables['head'].Offset -gt 0) {
+            $TTFHeadTableHeader = New-Object PSObject
+
+            # We need to jump further down the line in the .tff file for the correct directory data           
+            Read-SeekBigEndian -RawStreamReader $global:TTFReader -Offset $TTFFileTables['name'].Offset
+                        
+            # the 'name' record is also a directory with more then one possible record in it
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name Version -Value $(Read-FixedBigEndian -RawStreamReader $global:TTFReader)      # 0x00010000 : Major always 1 and Minor always 0.
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name FontRevision -Value $(Read-FixedBigEndian -RawStreamReader $global:TTFReader)  # Set by font manufacturer
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name CheckSumAdjustment -Value $(Read-UInt32BigEndian -RawStreamReader $global:TTFReader) # Font SUM
+            
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name MagicNumber -Value $(Read-UInt32BigEndian -RawStreamReader $global:TTFReader) # always hex 0x5F0F3CF5
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name Flags -Value $(Read-UInt16BigEndian -RawStreamReader $global:TTFReader)
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name UnitsPerEm -Value $(Read-UInt16BigEndian -RawStreamReader $global:TTFReader)  # range 64 to 16384
+            
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name Created -Value $(Read-UInt64BigEndian -RawStreamReader $global:TTFReader)    # Number of seconds since 12:00 midnight that started January 1st 1904 in GMT/UTC time zone.
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name Modified -Value $(Read-UInt64BigEndian -RawStreamReader $global:TTFReader)  # Number of seconds since 12:00 midnight that started January 1st 1904 in GMT/UTC time zone.
+            
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name xMin -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)  # glyph bounding box
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name yMin -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)  # glyph bounding box
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name xMax -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)  # glyph bounding box
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name yMax -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)  # glyph bounding box
+            
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name MacStyle -Value $(Read-UInt16BigEndian -RawStreamReader $global:TTFReader)          # Bit 0=Bold; Bit 1=Italic; Bit 2=Underline; Bit 3=Outline; Bit 4=Shadow; Bit 5=Condensed; Bit 6=Extended; Higher Bits 7–15=Reserved (always 0).
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name LowestRecPPEM -Value $(Read-UInt16BigEndian -RawStreamReader $global:TTFReader)     # Smallest readable size in pixels.
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name FontDirectionHint -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)  # depricated always 2
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name IndexToLocFormat -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)   # 0 for short offsets (Offset16), 1 for long (Offset32).
+            Add-Member -InputObject $TTFHeadTableHeader -MemberType NoteProperty -Name IlyphDataFormat -Value $(Read-Int16BigEndian -RawStreamReader $global:TTFReader)    # currently always 0
+        } Else {
+            Write-Warning "Invalid TrueType font head table?"
+        }
+    } Else {
+        Write-Warning "There is no Font file allocated!"
+    }
+
+    Return $TTFHeadTableHeader
+}
 #endregion
 
 
@@ -406,10 +485,10 @@ Function Install-FontFile {
                         If ($TTF_Name_Table.NameId -eq 4) {
                             try {
                                 New-ItemProperty -Path $RegistryFontsHive -Name "$($TTF_Name_Table.Name) (TrueType)" -Value $LocalFontFile -PropertyType "String" -Force | Out-Null
-                                Write-Host "-> Registered font $([char](34))$($TTF_Name_Table.Name) (TrueType)$([char](34)) = $($LocalFontFile)."
+                                Write-Host "-> Registered font $([char](34))$($TTF_Name_Table.Name) (TrueType)$([char](34)) => $($LocalFontFile)."
                                 $Registered = $true
                             } Catch {
-                                Write-Warning "-> Could not register font $([char](34))$($TTF_Name_Table.Name) (TrueType)$([char](34))!" 
+                                Write-Warning "-> Could not register font $([char](34))$($TTF_Name_Table.Name) (TrueType)$([char](34))!"
                             }
                         }
                     }
@@ -518,6 +597,63 @@ Function Uninstall-FontFile {
     }
 
 }
+
+#
+# Function : Get-FontInfo
+#
+Function Get-FontInfo {
+    Param (
+        [Parameter(Mandatory=$true)]
+        [string]$FontFilePath
+    )
+
+    If (Test-Path -Path $FontFilePath) {
+        [string]$LocalFontFile = "$(Split-Path -Path $FontFilePath -Leaf)"
+
+        Write-Host "Getting information font $($LocalFontFile)..."
+                
+        # open the .tff file
+        Open-TTFFile -FontFile "$($FontFilePath)"
+
+        # read the current .tff file
+        $TTF_Header = Read-TTFHeader
+
+        If (($TTF_Header.Major -eq 1) -and ($TTF_Header.Minor -eq 0)) {
+            # read .ttf tables and get the 'Name' table
+            $TTF_Table_Index = Read-TTFTables -TTFHeader $TTF_Header
+
+            $TTF_Head_Table = Read-TTFHeadSubTable -TTFHeader $TTF_Header -TTFFileTables $TTF_Table_Index          
+            $TTF_Name_Table = Read-TTFNameSubTable -TTFHeader $TTF_Header -TTFFileTables $TTF_Table_Index
+
+            Write-Host ""
+            Write-Host "-- head record"
+            $TTF_Head_Table
+            Write-Host ""
+
+            Write-Host "-- name record(s)"
+            $TTF_Name_Table
+            Write-Host ""
+        } Else {
+            Write-Warning "-> Unsupported TrueType font file!"
+        }
+
+        # close the .tff file
+        Close-TTFFile
+    } Else {
+        Write-Host "Font $($LocalFontFile) is not present?"
+    }
+}
+
+#
+# Function : Exit-Gracefully
+#
+Function Exit-Gracefully {
+    Param (
+        [UInt32]$ExitCode = 0
+    )
+
+    Exit($ExitCode)
+}
 #endregion
 
 
@@ -531,8 +667,9 @@ Function Main {
         [System.Array]$Arguments
     )
     
-    [bool]$Install = $true
+    [string]$EngineMode = "install"
     [string]$SearchPath = "$($global:WorkDir)"
+    [string]$SingleTTFFile = [string]::Empty
 
     # extract arguments
     If ($Arguments) {
@@ -540,17 +677,32 @@ Function Main {
             # A pwsh Switch statement is by default always case insensitive for Strings
             Switch ($Arguments[$i]) {
                 "-uninstall" {
-                    $Install = $false       
+                    $EngineMode = "uninstall"
                 }
 
                 "-install" {
-                    $Install = $true       
+                    $EngineMode = "install"
                 }
 
                 "-path" {
                     If (($i +1) -le $Arguments.Length) {                
                         $SearchPath = "$($Arguments[$i+1])"
                     }      
+                }
+
+                "-info" {
+                    $EngineMode = "information"
+
+                    # optional, we support loading a single .ttf file to dump info about
+                    If (($i +1) -le $Arguments.Length) {
+                        [string]$fileToInspect = $Arguments[$i+1]
+                        If (-not ([string]::IsNullOrEmpty($fileToInspect)) -and $fileToInspect.ToLowerInvariant().EndsWith(".ttf")) {
+                            $SingleTTFFile = "$($Arguments[$i+1])"
+                        } Else {
+                            Write-Warning "Invalid or unsupported file type provided!?"
+                            #Exit-Gracefully -ExitCode -1
+                        }
+                    }
                 }
 
                 default {
@@ -567,17 +719,38 @@ Function Main {
     # Get list of fonts to install
     $FontsList = Get-FontFilesFromFolder -SearchPath $SearchPath
 
-    If ($Install) {
-        # Install all fonts from our list
-        Write-Host "Mode = Install"        
-        $FontsList | % { Install-FontFile $_.FullName; Write-Host "" }
-    } Else {
-        # Uninstall all fonts from our list
-        Write-Host "Mode = Uninstall"        
-        $FontsList | % { Uninstall-FontFile $_.FullName; Write-Host "" }
+    Switch ($EngineMode) {
+        "install" {
+            # Install all fonts from our list
+            Write-Host "Mode = $($EngineMode)" -ForegroundColor Green
+            $FontsList | % { Install-FontFile -FontFilePath $_.FullName; Write-Host "" }
+        }
+        "uninstall" { 
+            # Uninstall all fonts from our list
+            Write-Host "Mode = $($EngineMode)" -ForegroundColor Green
+            $FontsList | % { Uninstall-FontFile -FontFilePath $_.FullName; Write-Host "" }
+        }
+        "information" {
+           # get information
+           Write-Host "Mode = $($EngineMode)" -ForegroundColor Green
+
+           # single file requested for info?
+           If (-not ([string]::IsNullOrEmpty($SingleTTFFile))) {
+                If (Test-Path -Path "$($SearchPath)\$($SingleTTFFile)") {
+                    Get-FontInfo -FontFilePath "$($SearchPath)\$($SingleTTFFile)"
+                } Else {                    
+                    Write-Warning "Font file $([char](34))$($SingleTTFFile)$([char](34)) seems not to exist?"
+                }
+           } Else {
+                # no specific file provided. Dump info about all found .ttf files in provided folder.
+                $FontsList | % { Get-FontInfo -FontFilePath $_.FullName; Write-Host "" }
+           }
+        }
     }
+
+                        
     # exit!
-    Exit (0)
+    Exit-Gracefully
 }
 #endregion
 

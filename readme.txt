@@ -5,8 +5,8 @@ Windows Font installer script.
 
 -install : install new .ttf fonts on the system. If no parameters are provided, the default action is install.
 -uninstall : compare .ttf fonts provided and uninstall them from the system.
--patch <path> : custom path. Default is current directory.
-
+-path <path> : custom path. Default is current directory.
+-info [<filepath>] : display font information. If no optional filename is provided, we display all fonts from the -path <path> folder.
 
 There is one font NotoSans-Regular.ttf provided for sake of the example.
 This is de Noto Sans font, you can get this for free from https://www.google.com/get/noto/.

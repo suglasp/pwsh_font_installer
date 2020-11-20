@@ -11,3 +11,6 @@ Windows Font installer script.
 There is one font NotoSans-Regular.ttf provided for sake of the example.
 This is de Noto Sans font, you can get this for free from https://www.google.com/get/noto/.
 
+
+In the background, the script will copy the .ttf file(s) to the Windows Fonts directory and also edit the registry entries for each font it (un-)installs.
+For the registry to work, the script reads the .ttf file(s) and gets the font 'Name' property directly from the .ttf file.

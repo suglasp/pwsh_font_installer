@@ -6,12 +6,12 @@
 # Created : 19/11/2020
 # Changed : 20/11/2020
 #
-# Usage : .\font_installer.ps1 [-uninstall]
+# Usage : .\font_installer.ps1 [-install] [-uninstall] [-path <path>]
 #
 # Parameters:
 # -install (default) : install listed fonts from local folder, to the %windir%\Fonts folder
 # -uninstall : uninstall the listed fonts in the local folder, from the %windir%\Fonts folder
-# -path : custom path (default is current folder)
+# -path <path> : custom path (default is current folder)
 #
 # Note : The scripts copies the .tff files, but also, opens the .tff and registers the official name in the Windows Registry Fonts hive.
 #

@@ -4,7 +4,7 @@
 # Script to install TrueType fonts (.tff files) on machine level
 #
 # Created : 19/11/2020
-# Changed : 20/11/2020
+# Changed : 23/11/2020
 #
 # Usage : .\font_installer.ps1 [-install] [-uninstall] [-path <path>] [-info [<file>]]
 #

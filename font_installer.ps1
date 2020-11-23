@@ -709,7 +709,7 @@ Function Main {
                 }
 
                 default {
-					$Install = $true
+					$EngineMode = "install"
 				}
             }
         }

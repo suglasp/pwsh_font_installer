@@ -434,6 +434,7 @@ Function Read-TTFHeadSubTable {
 # Function : Get-FontFilesFromFolder
 #
 Function Get-FontFilesFromFolder {
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true)]
         [string]$SearchPath
@@ -446,6 +447,7 @@ Function Get-FontFilesFromFolder {
 # Function : Install-FontFile
 #
 Function Install-FontFile {
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true)]
         [string]$FontFilePath
@@ -523,6 +525,7 @@ Function Install-FontFile {
 # Function : Uninstall-FontFile
 #
 Function Uninstall-FontFile {
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true)]
         [string]$FontFilePath

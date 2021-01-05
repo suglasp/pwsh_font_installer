@@ -14,3 +14,10 @@ This is de Noto Sans font, you can get this for free from https://www.google.com
 
 In the background, the script will copy the .ttf file(s) to the Windows Fonts directory and also edit the registry entries for each font it (un-)installs.
 For the registry to work, the script reads the .ttf file(s) and gets the font 'Name' property directly from the .ttf file.
+
+
+Real world usage:
+I wrote this script for a large pool of RDS servers that run virtualized on VMWare Horizon version 8.
+In the gold image, once it deploys each instance of a RDS machine, it run's a suite of scripts to ready the VM.
+One of these scripts is this font_install that "injects" a whole bunch of .tff files in the instanced machines.
+

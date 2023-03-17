@@ -1,7 +1,7 @@
 
 Windows Font installer script.
 
-.\font_install.ps1 [-install] [-uninstall] [-path <path_to_fonts>]
+.\font_install.ps1 [-install] [-uninstall] [-path <path_to_fonts>] [-info <ttf_file_path>]
 
 -install : install new .ttf fonts on the system. If no parameters are provided, the default action is install.
 -uninstall : compare .ttf fonts provided and uninstall them from the system.
